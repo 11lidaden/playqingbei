@@ -1,0 +1,28 @@
+server:
+  port: 8090
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/wanchuqingbei?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8
+    username: wcqb
+    password: wCQB2026!
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+
+# 题目配置
+question:
+  # 每关题目数量
+  per-level: 5
+  # 过关正确率阈值
+  pass-rate:
+    kindergarten: 0.6    # 幼儿园: 3/5
+    grade-1-2: 0.8       # 1-2年级: 4/5
+    grade-3-4: 0.8       # 3-4年级: 4/5
+    grade-5-6: 1.0       # 5-6年级: 5/5
