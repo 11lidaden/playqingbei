@@ -36,9 +36,11 @@ public class LevelConfig {
     private String gameCode;
 
     /** 星级评价所需正确数 */
-    @Column(nullable = false)
+    @Column(name = "star3_count", nullable = false)
     private Integer star3Count;  // 三星: 全对
+    @Column(name = "star2_count")
     private Integer star2Count;  // 二星: 错1题
+    @Column(name = "pass_count")
     private Integer passCount;   // 过关: 最低正确数
 
     /** 关卡排序 */
