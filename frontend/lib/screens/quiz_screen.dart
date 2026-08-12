@@ -16,7 +16,6 @@ class QuizScreen extends StatefulWidget {
 class _QuizScreenState extends State<QuizScreen> {
   List<dynamic> _questions = [];
   int _currentIndex = 0;
-  int _correctCount = 0;
   String? _selectedAnswer;
   bool _answered = false;
   bool _loading = true;
@@ -58,9 +57,6 @@ class _QuizScreenState extends State<QuizScreen> {
     });
 
     final q = _questions[_currentIndex];
-    final correct = answer == q['answer']?.toString()?.toUpperCase();
-    if (correct) _correctCount++;
-
     _answers.add({
       'questionId': q['id'],
       'userAnswer': answer,
@@ -81,31 +77,37 @@ class _QuizScreenState extends State<QuizScreen> {
     });
   }
 
-  void _finishQuiz() {
-    // 计算结果
-    final passRate = widget.grade == 'kindergarten' ? 3 : widget.grade == 'grade-5-6' ? 5 : 4;
-    final passed = _correctCount >= passRate;
-    int stars = 0;
-    if (passed) {
-      if (_correctCount >= 5) stars = 3;
-      else if (_correctCount >= 4) stars = 2;
-      else stars = 1;
+  Future<void> _finishQuiz() async {
+    try {
+      final dio = Dio();
+      final resp = await dio.post(
+        '${AppConstants.baseUrl}/submit',
+        queryParameters: {
+          'grade': widget.grade,
+          'subject': widget.subject,
+          'level': widget.level,
+        },
+        data: _answers,
+      );
+      final data = resp.data as Map<String, dynamic>;
+      if (!mounted) return;
+      context.push('/result', extra: {
+        'passed': data['passed'] ?? false,
+        'stars': data['stars'] ?? 0,
+        'correctCount': data['correctCount'] ?? 0,
+        'totalCount': data['totalCount'] ?? _questions.length,
+        'grade': widget.grade,
+        'subject': widget.subject,
+        'level': widget.level,
+        'gameCode': data['gameCode'] ?? 'runner',
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('提交失败，请检查网络')),
+        );
+      }
     }
-
-    // 确定游戏类型
-    final gameCycle = ['runner', 'shooter', 'pipe', 'pinyin_train'];
-    String gameCode = gameCycle[(widget.level - 1) % gameCycle.length];
-
-    context.push('/result', extra: {
-      'passed': passed,
-      'stars': stars,
-      'correctCount': _correctCount,
-      'totalCount': _questions.length,
-      'grade': widget.grade,
-      'subject': widget.subject,
-      'level': widget.level,
-      'gameCode': gameCode,
-    });
   }
 
   @override
@@ -183,11 +185,9 @@ class _QuizScreenState extends State<QuizScreen> {
                 ...List.generate(options.length, (i) {
                   final optLabel = String.fromCharCode(65 + i); // A/B/C/D
                   final isSelected = _selectedAnswer == optLabel;
-                  final isCorrect = optLabel == (q['answer'] ?? '').toString().toUpperCase();
                   Color bgColor = Colors.white;
                   if (_answered) {
-                    if (isCorrect) bgColor = const Color(0xFF58CC02);
-                    else if (isSelected) bgColor = const Color(0xFFFF4B4B);
+                    bgColor = isSelected ? const Color(0xFFE0E0E0) : Colors.white;
                   } else if (isSelected) {
                     bgColor = const Color(0xFFE0E0E0);
                   }
@@ -200,9 +200,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: bgColor,
-                          foregroundColor: _answered && (isCorrect || isSelected)
-                              ? Colors.white
-                              : Colors.black,
+                          foregroundColor: _answered && isSelected ? Colors.white : Colors.black,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           textStyle: const TextStyle(fontSize: 18),
                         ),
@@ -218,18 +216,12 @@ class _QuizScreenState extends State<QuizScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: _selectedAnswer ==
-                              (q['answer'] ?? '').toString().toUpperCase()
-                          ? const Color(0xFF58CC02).withOpacity(0.1)
-                          : const Color(0xFFFF4B4B).withOpacity(0.1),
+                      color: const Color(0xFF58CC02).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
-                      _selectedAnswer ==
-                              (q['answer'] ?? '').toString().toUpperCase()
-                          ? '✅ 太棒了！'
-                          : '❌ 答案是 ${q['answer']}',
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      '已选择 $_selectedAnswer，即将进入下一题...',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ),
               ],
