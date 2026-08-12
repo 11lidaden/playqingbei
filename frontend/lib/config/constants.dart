@@ -1,6 +1,6 @@
 class AppConstants {
   // 后端API地址（部署后改为服务器IP）
-  static const String baseUrl = 'http://106.54.235.209:8080/api';
+  static const String baseUrl = 'http://106.54.235.209/api';
 
   // 年级段
   static const Map<String, String> grades = {
