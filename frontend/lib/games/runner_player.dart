@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame/sprite.dart';
+import 'package:flutter/material.dart';
 
 import 'runner_game.dart';
 
@@ -37,11 +38,32 @@ class RunnerPlayer extends SpriteComponent with CollisionCallbacks {
 
   @override
   Future<void> onLoad() async {
-    sprite = await Sprite.load('images/runner_player.png');
+    try {
+      sprite = await Sprite.load('images/runner_player.png');
+    } catch (e, st) {
+      // PNG 加载/渲染失败时降级为纯色矩形，保证至少能看到角色形状
+      sprite = null;
+      debugPrint('[RunnerPlayer] sprite load failed: $e\n$st');
+    }
     add(RectangleHitbox(
       size: Vector2(40, 60),
       position: Vector2(10, 20),
     ));
+  }
+
+  @override
+  void render(Canvas canvas) {
+    if (sprite != null) {
+      super.render(canvas);
+    } else {
+      // 降级渲染：纯色矩形 + 简单眼睛
+      final rect = Rect.fromLTWH(0, 0, size.x, size.y);
+      canvas.drawRect(rect, Paint()..color = const Color(0xFFFF6B6B));
+      canvas.drawCircle(Offset(size.x * 0.35, size.y * 0.3), 4,
+          Paint()..color = Colors.white);
+      canvas.drawCircle(Offset(size.x * 0.65, size.y * 0.3), 4,
+          Paint()..color = Colors.white);
+    }
   }
 
   void jump() {

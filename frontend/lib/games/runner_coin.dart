@@ -21,7 +21,12 @@ class RunnerCoin extends SpriteComponent with CollisionCallbacks {
 
   @override
   Future<void> onLoad() async {
-    sprite = await Sprite.load('images/runner_coin.png');
+    try {
+      sprite = await Sprite.load('images/runner_coin.png');
+    } catch (e, st) {
+      sprite = null;
+      debugPrint('[RunnerCoin] sprite load failed: $e\n$st');
+    }
     add(CircleHitbox(radius: 14));
   }
 
@@ -44,14 +49,31 @@ class RunnerCoin extends SpriteComponent with CollisionCallbacks {
 
   @override
   void render(Canvas canvas) {
-    // 叠加呼吸缩放
-    final scale = 1 + sin(_phase) * 0.08;
-    canvas.save();
-    canvas.translate(size.x / 2, size.y / 2);
-    canvas.scale(scale, scale);
-    canvas.translate(-size.x / 2, -size.y / 2);
-    super.render(canvas);
-    canvas.restore();
+    if (sprite != null) {
+      // 叠加呼吸缩放
+      final scale = 1 + sin(_phase) * 0.08;
+      canvas.save();
+      canvas.translate(size.x / 2, size.y / 2);
+      canvas.scale(scale, scale);
+      canvas.translate(-size.x / 2, -size.y / 2);
+      super.render(canvas);
+      canvas.restore();
+    } else {
+      // 降级渲染：金色圆 + 描边
+      canvas.drawCircle(
+        Offset(size.x / 2, size.y / 2),
+        size.x / 2 - 1,
+        Paint()..color = const Color(0xFFFFD700),
+      );
+      canvas.drawCircle(
+        Offset(size.x / 2, size.y / 2),
+        size.x / 2 - 1,
+        Paint()
+          ..color = const Color(0xFFFFA500)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+    }
   }
 
   @override

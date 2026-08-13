@@ -1,7 +1,8 @@
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame/sprite.dart';
-import 'package:flutter/foundation.dart' show VoidCallback;
+import 'package:flutter/foundation.dart' show VoidCallback, debugPrint;
+import 'package:flutter/material.dart';
 
 import 'runner_player.dart';
 
@@ -25,13 +26,17 @@ class RunnerObstacle extends SpriteComponent with CollisionCallbacks {
     required this.onHit,
   }) : super(anchor: Anchor.bottomCenter);
 
+  Color _fallbackColor = const Color(0xFF888888);
+
   @override
   Future<void> onLoad() async {
     // 根据类型加载对应的精灵图 + 设置尺寸
+    String imgPath;
     switch (obstacleType) {
       case RunnerObstacleType.crate:
         size = Vector2(52, 50);
-        sprite = await Sprite.load('images/runner_crate.png');
+        imgPath = 'images/runner_crate.png';
+        _fallbackColor = const Color(0xFF8B5A2B);
         add(RectangleHitbox(
           size: Vector2(40, 42),
           position: Vector2(6, 8),
@@ -39,7 +44,8 @@ class RunnerObstacle extends SpriteComponent with CollisionCallbacks {
         break;
       case RunnerObstacleType.rock:
         size = Vector2(54, 40);
-        sprite = await Sprite.load('images/runner_rock.png');
+        imgPath = 'images/runner_rock.png';
+        _fallbackColor = const Color(0xFF666666);
         add(RectangleHitbox(
           size: Vector2(42, 32),
           position: Vector2(6, 8),
@@ -47,12 +53,31 @@ class RunnerObstacle extends SpriteComponent with CollisionCallbacks {
         break;
       case RunnerObstacleType.pillar:
         size = Vector2(46, 80);
-        sprite = await Sprite.load('images/runner_pillar.png');
+        imgPath = 'images/runner_pillar.png';
+        _fallbackColor = const Color(0xFFCE82FF);
         add(RectangleHitbox(
           size: Vector2(34, 70),
           position: Vector2(6, 10),
         ));
         break;
+    }
+    try {
+      sprite = await Sprite.load(imgPath);
+    } catch (e, st) {
+      sprite = null;
+      debugPrint('[RunnerObstacle] sprite load failed: $e\n$st');
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    if (sprite != null) {
+      super.render(canvas);
+    } else {
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, size.x, size.y),
+        Paint()..color = _fallbackColor,
+      );
     }
   }
 
