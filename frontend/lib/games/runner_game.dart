@@ -38,13 +38,13 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
   int get distanceMeters => (distance / 20).floor();
 
   /// 世界滚动速度（px/s），随时间加速
-  double _speed = 240;
+  double _speed = 360;
   double distance = 0;
   double _elapsed = 0;
   bool isGameOver = false;
 
-  /// 难度曲线：每 15 秒速度 +30，上限 520
-  double get speed => min(520, _speed + (_elapsed / 15) * 30);
+  /// 难度曲线：每 12 秒速度 +40，上限 720
+  double get speed => min(720, _speed + (_elapsed / 12) * 40);
 
   async.Timer? _spawnTimer;
 
@@ -128,7 +128,7 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
     score = 0;
     distance = 0;
     _elapsed = 0;
-    _speed = 240;
+    _speed = 360;
     isGameOver = false;
 
     player.reset();
