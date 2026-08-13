@@ -163,12 +163,6 @@ class RunnerGame extends FlameGame with HasCollisionDetection, TapCallbacks {
   }
 
   @override
-  void onTapUp(TapUpEvent event) {
-    // 松手：可变跳跃，上升速度减半
-    player.releaseJump();
-  }
-
-  @override
   void onRemove() {
     // 游戏从组件树移除（页面退出）时，务必取消 dart:async 计时器，
     // 否则会持续向已 dispose 的 game 添加组件，造成泄漏/异常。
