@@ -24,11 +24,20 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
   /// 游戏结束回调（true=成功通关，false=失败）
   final void Function(bool success)? onFinished;
 
+  /// 当前关卡（决定过关所需金币数，越往后越难）
+  final int level;
+
   late final RunnerPlayer player;
   final Random _random = Random();
 
   /// 得分（金币）
   int score = 0;
+
+  /// 过关所需金币数 = 8 + 关卡×2（第1关10枚、第5关18枚、第10关28枚）
+  int get targetCoins => 8 + level * 2;
+
+  /// 是否已达成过关条件（收集够金币）
+  bool hasWon = false;
 
   /// 奔跑距离（米，1 单位 = 20px）
   int get distanceMeters => (distance / 20).floor();
@@ -50,7 +59,7 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
     return (1.6 - (speed - 200) * (1.6 - 0.7) / (600 - 200)).clamp(0.7, 1.6);
   }
 
-  RunnerGame({this.onFinished});
+  RunnerGame({this.onFinished, this.level = 1});
 
   @override
   Future<void> onLoad() async {
@@ -87,7 +96,9 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
     add(obstacle);
 
     // 偶尔在障碍上方放一枚金币（鼓励跳跃）
-    if (_random.nextDouble() < 0.5) {
+    // 金币生成概率随关卡提高：50% + 关卡×3%，上限 80%
+    final coinChance = (0.5 + level * 0.03).clamp(0.5, 0.8);
+    if (_random.nextDouble() < coinChance) {
       final coin = RunnerCoin(
         position: Vector2(
           gameWidth + 80 + _random.nextInt(40),
@@ -102,12 +113,20 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
   void _onPlayerHitObstacle() {
     if (isGameOver) return;
     isGameOver = true;
+    hasWon = false;
     pauseEngine();
     overlays.add('gameOver');
   }
 
   void _onCoinCollected() {
     score += 10;
+    // 收集够目标金币 → 过关
+    if (!isGameOver && score >= targetCoins * 10) {
+      isGameOver = true;
+      hasWon = true;
+      pauseEngine();
+      overlays.add('gameWin');
+    }
   }
 
   /// 重新开始
@@ -118,16 +137,19 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
       if (child is RunnerCoin) child.removeFromParent();
     }
 
+    // 金币清零：撞障碍重跑 = 失败重来，单局必须收集够目标金币才能过关
     score = 0;
     distance = 0;
     _elapsed = 0;
     _speed = 200;
     _spawnAccumulator = 0;
     isGameOver = false;
+    hasWon = false;
 
     player.reset();
 
     overlays.remove('gameOver');
+    overlays.remove('gameWin');
     resumeEngine();
   }
 

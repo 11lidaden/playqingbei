@@ -22,7 +22,9 @@ class RunnerCoin extends SpriteComponent with CollisionCallbacks {
   @override
   Future<void> onLoad() async {
     try {
-      sprite = await Sprite.load('images/runner_coin.png');
+      // 注意：Flame 的 Images 默认 prefix 就是 assets/images/，
+      // 这里只传文件名，不能带 images/ 前缀
+      sprite = await Sprite.load('runner_coin.png');
     } catch (_) {
       sprite = null;
     }

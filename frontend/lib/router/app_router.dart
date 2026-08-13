@@ -43,9 +43,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
-        path: '/game/:gameCode',
+        path: '/game/:gameCode/:level',
         builder: (context, state) => GameScreen(
           gameCode: state.pathParameters['gameCode']!,
+          level: int.parse(state.pathParameters['level'] ?? '1'),
         ),
       ),
       GoRoute(

@@ -13,7 +13,8 @@ import '../games/runner_game.dart';
 /// - 其他游戏（shooter/pipe/pinyin_train）：暂为占位页，后续逐个接入
 class GameScreen extends StatefulWidget {
   final String gameCode;
-  const GameScreen({super.key, required this.gameCode});
+  final int level;
+  const GameScreen({super.key, required this.gameCode, this.level = 1});
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -35,6 +36,7 @@ class _GameScreenState extends State<GameScreen> {
       // 持有 game 实例，避免重建导致游戏状态丢失
       _runnerGame ??= RunnerGame(
         onFinished: (success) => context.pop(success),
+        level: widget.level,
       );
       final game = _runnerGame!;
       return Scaffold(
@@ -54,6 +56,7 @@ class _GameScreenState extends State<GameScreen> {
               overlayBuilderMap: {
                 'HUD': (_, game) => _RunnerHud(game: game),
                 'gameOver': (_, game) => _GameOverOverlay(game: game),
+                'gameWin': (_, game) => _GameWinOverlay(game: game),
               },
               initialActiveOverlays: const ['HUD'],
             ),
@@ -180,10 +183,10 @@ class _RunnerHudState extends State<_RunnerHud> {
               ),
               child: Row(
                 children: [
-                  const Text('⭐', style: TextStyle(fontSize: 20)),
+                  const Text('🪙', style: TextStyle(fontSize: 20)),
                   const SizedBox(width: 6),
                   Text(
-                    '${game.score}',
+                    '${game.score ~/ 10}/${game.targetCoins}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 22,
@@ -246,10 +249,15 @@ class _GameOverOverlay extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _StatItem(emoji: '⭐', value: '${game.score}', label: '金币'),
+                  _StatItem(emoji: '🪙', value: '${game.score ~/ 10}/${game.targetCoins}', label: '金币'),
                   const SizedBox(width: 28),
                   _StatItem(emoji: '🏃', value: '${game.distanceMeters}m', label: '距离'),
                 ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '还差一点就过关啦，再试一次吧！',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
               ),
               const SizedBox(height: 24),
               SizedBox(
@@ -275,8 +283,8 @@ class _GameOverOverlay extends StatelessWidget {
                     side: const BorderSide(color: Color(0xFF58CC02)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
-                  onPressed: () => game.quit(true),
-                  child: const Text('返回关卡', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  onPressed: () => game.quit(false),
+                  child: const Text('📝 重新做题', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -302,6 +310,77 @@ class _StatItem extends StatelessWidget {
         Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF2D5016))),
         Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey)),
       ],
+    );
+  }
+}
+
+/// 过关浮层：收集够目标金币
+class _GameWinOverlay extends StatelessWidget {
+  final RunnerGame game;
+  const _GameWinOverlay({required this.game});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black.withOpacity(0.55),
+      body: Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 40),
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('🎉', style: TextStyle(fontSize: 64)),
+              const SizedBox(height: 12),
+              const Text(
+                '太棒了，过关啦！',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF2D5016)),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _StatItem(emoji: '🪙', value: '${game.score ~/ 10}/${game.targetCoins}', label: '金币'),
+                  const SizedBox(width: 28),
+                  _StatItem(emoji: '🏃', value: '${game.distanceMeters}m', label: '距离'),
+                ],
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF58CC02),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: () => game.quit(true),
+                  child: const Text('🎊 完成关卡', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF2D5016),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: const BorderSide(color: Color(0xFF58CC02)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: () => game.restart(),
+                  child: const Text('🔄 再玩一次', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

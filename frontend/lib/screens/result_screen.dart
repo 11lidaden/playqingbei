@@ -33,9 +33,8 @@ class _ResultScreenState extends State<ResultScreen> {
   @override
   void initState() {
     super.initState();
-    // 仅在进入页面时执行一次：保存进度、发放金币。
-    // 绝不能放在 build 中——build 可能被多次调用，会导致金币被重复累加。
-    _saveProgress();
+    // 注意：不再在此保存进度。
+    // 现在过关 = 做题达标 + 游戏里收集够金币，进度在游戏过关后（_saveProgress）才保存。
   }
 
   @override
@@ -83,8 +82,8 @@ class _ResultScreenState extends State<ResultScreen> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    '+${widget.stars * 10} 🪙',
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                    '去游戏里收集 ${8 + widget.level * 2} 枚金币即可过关！',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                 ),
               ],
@@ -94,19 +93,23 @@ class _ResultScreenState extends State<ResultScreen> {
                   text: '🎮 开始游戏！',
                   color: const Color(0xFFFF9600),
                   onPressed: () async {
-                    // 进入游戏（作为过关奖励）
-                    final gameResult = await context.push<bool>('/game/${widget.gameCode}');
+                    // 进入游戏：收集够目标金币才算完成本关（目标随关卡递增）
+                    final gameResult = await context.push<bool>(
+                      '/game/${widget.gameCode}/${widget.level}',
+                    );
                     if (gameResult == true) {
-                      // 游戏完成，过关庆祝
+                      // 游戏过关 → 保存进度、发放奖励、过关庆祝
                       if (context.mounted) {
+                        _saveProgress();
                         _showLevelComplete(context);
                       }
                     } else {
-                      // 没玩（直接返回），仅提示，不算过关
+                      // 游戏失败（没收集够金币）→ 重新做题，巩固后再拿游戏机会
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('游戏还没玩哦～')),
+                          const SnackBar(content: Text('没收集够金币，重新做题后再试！')),
                         );
+                        context.go('/quiz/${widget.grade}/${widget.subject}/${widget.level}');
                       }
                     }
                   },

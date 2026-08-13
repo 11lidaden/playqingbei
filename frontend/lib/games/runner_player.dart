@@ -42,7 +42,10 @@ class RunnerPlayer extends SpriteComponent with CollisionCallbacks {
   @override
   Future<void> onLoad() async {
     try {
-      sprite = await Sprite.load('images/runner_player.png');
+      // 注意：Flame 的 Images 默认 prefix 就是 assets/images/，
+      // 所以这里只传文件名，不能带 images/ 前缀，否则路径会变成
+      // assets/images/images/runner_player.png 导致加载失败
+      sprite = await Sprite.load('runner_player.png');
     } catch (_) {
       // PNG 加载失败时降级为纯色矩形，保证至少能看到角色形状
       sprite = null;
