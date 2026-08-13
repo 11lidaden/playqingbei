@@ -1,4 +1,3 @@
-import 'dart:async' as async;
 import 'dart:math';
 
 import 'package:flame/camera.dart';
@@ -31,9 +30,6 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
   /// 得分（金币）
   int score = 0;
 
-  /// DEBUG: 屏幕点击计数（用于诊断手势是否触发）
-  int tapCount = 0;
-
   /// 奔跑距离（米，1 单位 = 20px）
   int get distanceMeters => (distance / 20).floor();
 
@@ -46,7 +42,13 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
   /// 难度曲线：起始 200，每秒 +8，上限 600（约 50s 加到满速）
   double get speed => min(600, _speed + _elapsed * 8);
 
-  async.Timer? _spawnTimer;
+  double _spawnAccumulator = 0;
+
+  /// 当前障碍生成间隔（秒），随速度缩短
+  double get _spawnInterval {
+    // 速度 200→1.6s，速度 600→0.7s，线性插值
+    return (1.6 - (speed - 200) * (1.6 - 0.7) / (600 - 200)).clamp(0.7, 1.6);
+  }
 
   RunnerGame({this.onFinished});
 
@@ -69,16 +71,8 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
       position: Vector2(110, groundY),
     );
     await add(player);
-
-    // 障碍物生成器：初始间隔 1.6s，随难度缩短
-    _startSpawnTimer();
   }
 
-  void _startSpawnTimer() {
-    _spawnTimer = async.Timer.periodic(const Duration(milliseconds: 1600), (_) {
-      if (!isGameOver) _spawnObstacle();
-    });
-  }
 
   void _spawnObstacle() {
     // 随机障碍类型：0=木箱(地面)，1=石头(地面)，2=高柱(必须跳过)
@@ -108,7 +102,6 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
   void _onPlayerHitObstacle() {
     if (isGameOver) return;
     isGameOver = true;
-    _spawnTimer?.cancel();
     pauseEngine();
     overlays.add('gameOver');
   }
@@ -129,11 +122,10 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
     distance = 0;
     _elapsed = 0;
     _speed = 200;
+    _spawnAccumulator = 0;
     isGameOver = false;
 
     player.reset();
-
-    _startSpawnTimer();
 
     overlays.remove('gameOver');
     resumeEngine();
@@ -154,15 +146,18 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
     _elapsed += dt;
     distance += speed * dt;
 
+    // 障碍物生成：按速度动态调整间隔
+    _spawnAccumulator += dt;
+    if (_spawnAccumulator >= _spawnInterval) {
+      _spawnAccumulator = 0;
+      _spawnObstacle();
+    }
+
     super.update(dt);
   }
 
   @override
   void onRemove() {
-    // 游戏从组件树移除（页面退出）时，务必取消 dart:async 计时器，
-    // 否则会持续向已 dispose 的 game 添加组件，造成泄漏/异常。
-    _spawnTimer?.cancel();
-    _spawnTimer = null;
     super.onRemove();
   }
 }

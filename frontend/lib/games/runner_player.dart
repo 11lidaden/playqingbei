@@ -43,10 +43,9 @@ class RunnerPlayer extends SpriteComponent with CollisionCallbacks {
   Future<void> onLoad() async {
     try {
       sprite = await Sprite.load('images/runner_player.png');
-    } catch (e, st) {
-      // PNG 加载/渲染失败时降级为纯色矩形，保证至少能看到角色形状
+    } catch (_) {
+      // PNG 加载失败时降级为纯色矩形，保证至少能看到角色形状
       sprite = null;
-      debugPrint('[RunnerPlayer] sprite load failed: $e\n$st');
     }
     add(RectangleHitbox(
       size: Vector2(40, 60),

@@ -1,7 +1,7 @@
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame/sprite.dart';
-import 'package:flutter/foundation.dart' show VoidCallback, debugPrint;
+import 'package:flutter/foundation.dart' show VoidCallback;
 import 'package:flutter/material.dart';
 
 import 'runner_player.dart';
@@ -63,9 +63,8 @@ class RunnerObstacle extends SpriteComponent with CollisionCallbacks {
     }
     try {
       sprite = await Sprite.load(imgPath);
-    } catch (e, st) {
+    } catch (_) {
       sprite = null;
-      debugPrint('[RunnerObstacle] sprite load failed: $e\n$st');
     }
   }
 

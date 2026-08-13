@@ -23,9 +23,8 @@ class RunnerCoin extends SpriteComponent with CollisionCallbacks {
   Future<void> onLoad() async {
     try {
       sprite = await Sprite.load('images/runner_coin.png');
-    } catch (e, st) {
+    } catch (_) {
       sprite = null;
-      debugPrint('[RunnerCoin] sprite load failed: $e\n$st');
     }
     add(CircleHitbox(radius: 14));
   }
