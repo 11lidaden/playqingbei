@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../widgets/animated_button.dart';
 
-class ResultScreen extends StatelessWidget {
+class ResultScreen extends StatefulWidget {
   final bool passed;
   final int stars;
   final int correctCount;
@@ -26,17 +26,27 @@ class ResultScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    // 保存进度
-    _saveProgress();
+  State<ResultScreen> createState() => _ResultScreenState();
+}
 
+class _ResultScreenState extends State<ResultScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // 仅在进入页面时执行一次：保存进度、发放金币。
+    // 绝不能放在 build 中——build 可能被多次调用，会导致金币被重复累加。
+    _saveProgress();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: passed
+            colors: widget.passed
                 ? [const Color(0xFF58CC02), const Color(0xFF2D5016)]
                 : [const Color(0xFFFF6B6B), const Color(0xFFC0392B)],
           ),
@@ -46,23 +56,23 @@ class ResultScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                passed ? '🎉' : '😢',
+                widget.passed ? '🎉' : '😢',
                 style: const TextStyle(fontSize: 80),
               ),
               const SizedBox(height: 20),
               Text(
-                passed ? '太棒了！' : '再试一次吧！',
+                widget.passed ? '太棒了！' : '再试一次吧！',
                 style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Colors.white),
               ),
               const SizedBox(height: 16),
               Text(
-                '答对 $correctCount / $totalCount 题',
+                '答对 ${widget.correctCount} / ${widget.totalCount} 题',
                 style: const TextStyle(fontSize: 22, color: Colors.white70),
               ),
-              if (passed) ...[
+              if (widget.passed) ...[
                 const SizedBox(height: 16),
                 Text(
-                  '⭐' * stars,
+                  '⭐' * widget.stars,
                   style: const TextStyle(fontSize: 40),
                 ),
                 const SizedBox(height: 12),
@@ -73,29 +83,29 @@ class ResultScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    '+${stars * 10} 🪙',
+                    '+${widget.stars * 10} 🪙',
                     style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                 ),
               ],
               const SizedBox(height: 60),
-              if (passed)
+              if (widget.passed)
                 AnimatedButton(
                   text: '🎮 开始游戏！',
                   color: const Color(0xFFFF9600),
                   onPressed: () async {
-                    // 进入游戏
-                    final gameResult = await context.push<bool>('/game/$gameCode');
+                    // 进入游戏（作为过关奖励）
+                    final gameResult = await context.push<bool>('/game/${widget.gameCode}');
                     if (gameResult == true) {
-                      // 游戏成功，过关
+                      // 游戏完成，过关庆祝
                       if (context.mounted) {
                         _showLevelComplete(context);
                       }
                     } else {
-                      // 游戏失败，重玩游戏
+                      // 没玩（直接返回），仅提示，不算过关
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('游戏失败，再试一次吧！')),
+                          const SnackBar(content: Text('游戏还没玩哦～')),
                         );
                       }
                     }
@@ -105,11 +115,11 @@ class ResultScreen extends StatelessWidget {
                 AnimatedButton(
                   text: '📝 重新答题',
                   color: const Color(0xFFFF9600),
-                  onPressed: () => context.go('/quiz/$grade/$subject/$level'),
+                  onPressed: () => context.go('/quiz/${widget.grade}/${widget.subject}/${widget.level}'),
                 ),
               const SizedBox(height: 16),
               TextButton(
-                onPressed: () => context.go('/levels/$grade/$subject'),
+                onPressed: () => context.go('/levels/${widget.grade}/${widget.subject}'),
                 child: const Text('返回关卡', style: TextStyle(color: Colors.white70, fontSize: 16)),
               ),
             ],
@@ -122,26 +132,26 @@ class ResultScreen extends StatelessWidget {
   void _saveProgress() {
     final progressBox = Hive.box('progress');
     final profileBox = Hive.box('profile');
-    final key = '${grade}_$subject';
+    final key = '${widget.grade}_${widget.subject}';
 
-    if (passed) {
+    if (widget.passed) {
       // 更新关卡进度
       final currentLevel = progressBox.get('${key}_level', defaultValue: 1);
-      if (level >= currentLevel) {
-        progressBox.put('${key}_level', level + 1);
+      if (widget.level >= currentLevel) {
+        progressBox.put('${key}_level', widget.level + 1);
       }
 
       // 保存星级
       final starsMap = Map<int, int>.from(progressBox.get('${key}_stars', defaultValue: {}));
-      final existingStars = starsMap[level] ?? 0;
-      if (stars > existingStars) {
-        starsMap[level] = stars;
+      final existingStars = starsMap[widget.level] ?? 0;
+      if (widget.stars > existingStars) {
+        starsMap[widget.level] = widget.stars;
         progressBox.put('${key}_stars', starsMap);
       }
 
       // 加金币
       final coins = profileBox.get('coins', defaultValue: 0);
-      profileBox.put('coins', coins + stars * 10);
+      profileBox.put('coins', coins + widget.stars * 10);
 
       // 更新总星数
       int totalStars = 0;
@@ -165,7 +175,7 @@ class ResultScreen extends StatelessWidget {
             const SizedBox(height: 16),
             const Text('过关！', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text('第$level关 完成', style: const TextStyle(fontSize: 18, color: Colors.grey)),
+            Text('第${widget.level}关 完成', style: const TextStyle(fontSize: 18, color: Colors.grey)),
           ],
         ),
         actions: [
@@ -180,7 +190,7 @@ class ResultScreen extends StatelessWidget {
               ),
               onPressed: () {
                 Navigator.pop(ctx);
-                context.go('/levels/$grade/$subject');
+                context.go('/levels/${widget.grade}/${widget.subject}');
               },
               child: const Text('继续冒险', style: TextStyle(fontSize: 18)),
             ),

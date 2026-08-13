@@ -3,10 +3,10 @@ import 'dart:math';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
-import 'package:flame/sprite.dart';
 import 'package:flutter/material.dart';
 
 import 'runner_game.dart';
+import 'runner_player.dart';
 
 /// 跑酷金币 - 使用 AI 生成的精灵图
 class RunnerCoin extends SpriteComponent with CollisionCallbacks {
@@ -32,7 +32,7 @@ class RunnerCoin extends SpriteComponent with CollisionCallbacks {
 
     if (!_collected) {
       final game = findGame();
-      if (game != null && game is RunnerGame) {
+      if (game is RunnerGame) {
         position.x -= game.speed * dt;
       }
     }
@@ -40,15 +40,6 @@ class RunnerCoin extends SpriteComponent with CollisionCallbacks {
     if (position.x < -40) {
       removeFromParent();
     }
-  }
-
-  RunnerGame? findGame() {
-    var c = parent;
-    while (c != null) {
-      if (c is RunnerGame) return c;
-      c = c.parent;
-    }
-    return null;
   }
 
   @override
@@ -67,7 +58,7 @@ class RunnerCoin extends SpriteComponent with CollisionCallbacks {
   void onCollisionStart(Set<Vector2> intersectionPoints, PositionComponent other) {
     super.onCollisionStart(intersectionPoints, other);
     if (_collected) return;
-    if (other.runtimeType.toString() == 'RunnerPlayer') {
+    if (other is RunnerPlayer) {
       _collected = true;
       onCollected();
 

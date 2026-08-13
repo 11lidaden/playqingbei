@@ -45,9 +45,6 @@ class RunnerGame extends FlameGame with HasCollisionDetection, TapCallbacks {
   double get speed => min(520, _speed + (_elapsed / 15) * 30);
 
   async.Timer? _spawnTimer;
-  final List<RunnerObstacle> _obstacles = [];
-  final List<RunnerCoin> _coins = [];
-
 
   RunnerGame({this.onFinished});
 
@@ -72,6 +69,10 @@ class RunnerGame extends FlameGame with HasCollisionDetection, TapCallbacks {
     await add(player);
 
     // 障碍物生成器：初始间隔 1.6s，随难度缩短
+    _startSpawnTimer();
+  }
+
+  void _startSpawnTimer() {
     _spawnTimer = async.Timer.periodic(const Duration(milliseconds: 1600), (_) {
       if (!isGameOver) _spawnObstacle();
     });
@@ -87,7 +88,6 @@ class RunnerGame extends FlameGame with HasCollisionDetection, TapCallbacks {
       speedProvider: () => speed,
       onHit: _onPlayerHitObstacle,
     );
-    _obstacles.add(obstacle);
     add(obstacle);
 
     // 偶尔在障碍上方放一枚金币（鼓励跳跃）
@@ -99,7 +99,6 @@ class RunnerGame extends FlameGame with HasCollisionDetection, TapCallbacks {
         ),
         onCollected: _onCoinCollected,
       );
-      _coins.add(coin);
       add(coin);
     }
   }
@@ -118,15 +117,11 @@ class RunnerGame extends FlameGame with HasCollisionDetection, TapCallbacks {
 
   /// 重新开始
   void restart() {
-    // 清理所有障碍和金币
-    for (final o in _obstacles) {
-      o.removeFromParent();
+    // 清理所有障碍和金币（直接从组件树里清，不必维护冗余列表）
+    for (final child in children) {
+      if (child is RunnerObstacle) child.removeFromParent();
+      if (child is RunnerCoin) child.removeFromParent();
     }
-    for (final c in _coins) {
-      c.removeFromParent();
-    }
-    _obstacles.clear();
-    _coins.clear();
 
     score = 0;
     distance = 0;
@@ -136,15 +131,13 @@ class RunnerGame extends FlameGame with HasCollisionDetection, TapCallbacks {
 
     player.reset();
 
-    _spawnTimer = async.Timer.periodic(const Duration(milliseconds: 1600), (_) {
-      if (!isGameOver) _spawnObstacle();
-    });
+    _startSpawnTimer();
 
     overlays.remove('gameOver');
     resumeEngine();
   }
 
-  /// 玩家选择"返回"：上报失败
+  /// 玩家选择"返回"：上报结果
   void quit(bool success) {
     onFinished?.call(success);
   }
@@ -159,10 +152,6 @@ class RunnerGame extends FlameGame with HasCollisionDetection, TapCallbacks {
     _elapsed += dt;
     distance += speed * dt;
 
-    // 障碍物和金币自己移动（在各自 update 中），这里只做清理
-    _obstacles.removeWhere((o) => !o.isLoaded);
-    _coins.removeWhere((c) => !c.isLoaded);
-
     super.update(dt);
   }
 
@@ -171,6 +160,21 @@ class RunnerGame extends FlameGame with HasCollisionDetection, TapCallbacks {
     if (!isGameOver) {
       player.jump();
     }
+  }
+
+  @override
+  void onTapUp(TapUpEvent event) {
+    // 松手：可变跳跃，上升速度减半
+    player.releaseJump();
+  }
+
+  @override
+  void onRemove() {
+    // 游戏从组件树移除（页面退出）时，务必取消 dart:async 计时器，
+    // 否则会持续向已 dispose 的 game 添加组件，造成泄漏/异常。
+    _spawnTimer?.cancel();
+    _spawnTimer = null;
+    super.onRemove();
   }
 }
 

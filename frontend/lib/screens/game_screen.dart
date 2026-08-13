@@ -23,6 +23,13 @@ class _GameScreenState extends State<GameScreen> {
   RunnerGame? _runnerGame;
 
   @override
+  void dispose() {
+    // 页面退出时释放游戏资源（取消计时器、解绑），避免泄漏
+    _runnerGame?.onRemove();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (widget.gameCode == 'runner') {
       // 持有 game 实例，避免重建导致游戏状态丢失
@@ -257,7 +264,7 @@ class _GameOverOverlay extends StatelessWidget {
                     side: const BorderSide(color: Color(0xFF58CC02)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
-                  onPressed: () => game.quit(false),
+                  onPressed: () => game.quit(true),
                   child: const Text('返回关卡', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
               ),

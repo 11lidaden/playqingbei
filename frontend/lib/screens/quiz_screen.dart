@@ -123,7 +123,10 @@ class _QuizScreenState extends State<QuizScreen> {
     }
 
     final q = _questions[_currentIndex];
-    final options = (q['options'] as List).cast<String>();
+    final rawOptions = q['options'];
+    final options = rawOptions is List
+        ? rawOptions.map((e) => e.toString()).toList()
+        : <String>[];
 
     return Scaffold(
       body: Container(

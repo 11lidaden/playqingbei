@@ -3,6 +3,8 @@ import 'package:flame/components.dart';
 import 'package:flame/sprite.dart';
 import 'package:flutter/foundation.dart' show VoidCallback;
 
+import 'runner_player.dart';
+
 /// 障碍物类型
 enum RunnerObstacleType {
   crate,
@@ -66,7 +68,7 @@ class RunnerObstacle extends SpriteComponent with CollisionCallbacks {
   @override
   void onCollisionStart(Set<Vector2> intersectionPoints, PositionComponent other) {
     super.onCollisionStart(intersectionPoints, other);
-    if (other.runtimeType.toString() == 'RunnerPlayer') {
+    if (other is RunnerPlayer) {
       onHit();
     }
   }
