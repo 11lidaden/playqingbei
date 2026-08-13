@@ -1,16 +1,20 @@
 import 'dart:async';
 
 import 'package:flame/game.dart';
+import 'package:flame/extensions.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../games/game_controller.dart';
 import '../games/runner_game.dart';
+import '../games/shooter_game.dart';
 
 /// 游戏页
 ///
 /// 按 gameCode 分发到对应游戏：
 /// - runner: 跑酷大冒险（Flame 实现）
-/// - 其他游戏（shooter/pipe/pinyin_train）：暂为占位页，后续逐个接入
+/// - shooter: 射击达人（Flame 实现）
+/// - 其他游戏（pipe/pinyin_train）：暂为占位页，后续逐个接入
 class GameScreen extends StatefulWidget {
   final String gameCode;
   final int level;
@@ -22,11 +26,13 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   RunnerGame? _runnerGame;
+  ShooterGame? _shooterGame;
 
   @override
   void dispose() {
-    // 页面退出时释放游戏资源（取消计时器、解绑），避免泄漏
+    // 页面退出时释放游戏资源，避免泄漏
     _runnerGame?.onRemove();
+    _shooterGame?.onRemove();
     super.dispose();
   }
 
@@ -42,9 +48,6 @@ class _GameScreenState extends State<GameScreen> {
       return Scaffold(
         body: SizedBox.expand(
           child: Listener(
-            // 用 Listener 而非 GestureDetector：Listener 不参与手势 arena，
-            // 直接在指针接触屏幕时回调，100% 触发，不受 GameWidget 内部
-            // gesture recognizer 或 HUD overlay 手势竞争影响。
             behavior: HitTestBehavior.translucent,
             onPointerDown: (_) {
               if (!game.isGameOver) {
@@ -54,9 +57,36 @@ class _GameScreenState extends State<GameScreen> {
             child: GameWidget<RunnerGame>(
               game: game,
               overlayBuilderMap: {
-                'HUD': (_, game) => _RunnerHud(game: game),
-                'gameOver': (_, game) => _GameOverOverlay(game: game),
-                'gameWin': (_, game) => _GameWinOverlay(game: game),
+                'HUD': (_, g) => _RunnerHud(game: g),
+                'gameOver': (_, g) => _GameOverOverlay(game: g),
+                'gameWin': (_, g) => _GameWinOverlay(game: g),
+              },
+              initialActiveOverlays: const ['HUD'],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (widget.gameCode == 'shooter') {
+      _shooterGame ??= ShooterGame(
+        onFinished: (success) => context.pop(success),
+        level: widget.level,
+      );
+      final game = _shooterGame!;
+      return Scaffold(
+        body: SizedBox.expand(
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (e) {
+              game.handleTap(e.localPosition.toVector2());
+            },
+            child: GameWidget<ShooterGame>(
+              game: game,
+              overlayBuilderMap: {
+                'HUD': (_, g) => _RunnerHud(game: g),
+                'gameOver': (_, g) => _GameOverOverlay(game: g),
+                'gameWin': (_, g) => _GameWinOverlay(game: g),
               },
               initialActiveOverlays: const ['HUD'],
             ),
@@ -139,9 +169,9 @@ class _GameScreenState extends State<GameScreen> {
   }
 }
 
-/// 跑酷 HUD：分数 + 距离
+/// 跑酷 HUD：金币进度 + 距离/剩余机会
 class _RunnerHud extends StatefulWidget {
-  final RunnerGame game;
+  final GameController game;
   const _RunnerHud({required this.game});
 
   @override
@@ -174,7 +204,7 @@ class _RunnerHudState extends State<_RunnerHud> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // 分数
+            // 金币进度
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
@@ -186,7 +216,7 @@ class _RunnerHudState extends State<_RunnerHud> {
                   const Text('🪙', style: TextStyle(fontSize: 20)),
                   const SizedBox(width: 6),
                   Text(
-                    '${game.score ~/ 10}/${game.targetCoins}',
+                    '${game.coins}/${game.targetCoins}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 22,
@@ -196,7 +226,7 @@ class _RunnerHudState extends State<_RunnerHud> {
                 ],
               ),
             ),
-            // 距离
+            // 副信息（距离/剩余机会）
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
@@ -204,7 +234,7 @@ class _RunnerHudState extends State<_RunnerHud> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                '🏃 ${game.distanceMeters}m',
+                '${game.statLabel} ${game.statValue}',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -219,9 +249,9 @@ class _RunnerHudState extends State<_RunnerHud> {
   }
 }
 
-/// 游戏结束浮层
+/// 游戏结束浮层（失败）
 class _GameOverOverlay extends StatelessWidget {
-  final RunnerGame game;
+  final GameController game;
   const _GameOverOverlay({required this.game});
 
   @override
@@ -242,16 +272,16 @@ class _GameOverOverlay extends StatelessWidget {
               const Text('😵', style: TextStyle(fontSize: 64)),
               const SizedBox(height: 12),
               const Text(
-                '哎呀，撞到障碍啦！',
+                '哎呀，差一点啦！',
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF2D5016)),
               ),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _StatItem(emoji: '🪙', value: '${game.score ~/ 10}/${game.targetCoins}', label: '金币'),
+                  _StatItem(emoji: '🪙', value: '${game.coins}/${game.targetCoins}', label: '金币'),
                   const SizedBox(width: 28),
-                  _StatItem(emoji: '🏃', value: '${game.distanceMeters}m', label: '距离'),
+                  _StatItem(emoji: '❌', value: '${game.statValue}', label: game.statLabel),
                 ],
               ),
               const SizedBox(height: 8),
@@ -270,7 +300,7 @@ class _GameOverOverlay extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                   onPressed: () => game.restart(),
-                  child: const Text('🔄 再跑一次', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  child: const Text('🔄 再试一次', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(height: 10),
@@ -295,28 +325,9 @@ class _GameOverOverlay extends StatelessWidget {
   }
 }
 
-class _StatItem extends StatelessWidget {
-  final String emoji;
-  final String value;
-  final String label;
-  const _StatItem({required this.emoji, required this.value, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(emoji, style: const TextStyle(fontSize: 24)),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF2D5016))),
-        Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-      ],
-    );
-  }
-}
-
 /// 过关浮层：收集够目标金币
 class _GameWinOverlay extends StatelessWidget {
-  final RunnerGame game;
+  final GameController game;
   const _GameWinOverlay({required this.game});
 
   @override
@@ -344,9 +355,9 @@ class _GameWinOverlay extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _StatItem(emoji: '🪙', value: '${game.score ~/ 10}/${game.targetCoins}', label: '金币'),
+                  _StatItem(emoji: '🪙', value: '${game.coins}/${game.targetCoins}', label: '金币'),
                   const SizedBox(width: 28),
-                  _StatItem(emoji: '🏃', value: '${game.distanceMeters}m', label: '距离'),
+                  _StatItem(emoji: '🎯', value: '${game.statValue}', label: game.statLabel),
                 ],
               ),
               const SizedBox(height: 24),
@@ -381,6 +392,25 @@ class _GameWinOverlay extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _StatItem extends StatelessWidget {
+  final String emoji;
+  final String value;
+  final String label;
+  const _StatItem({required this.emoji, required this.value, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(emoji, style: const TextStyle(fontSize: 24)),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF2D5016))),
+        Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+      ],
     );
   }
 }

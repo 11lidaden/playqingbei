@@ -5,6 +5,7 @@ import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
+import 'game_controller.dart';
 import 'runner_coin.dart';
 import 'runner_obstacle.dart';
 import 'runner_player.dart';
@@ -13,7 +14,7 @@ import 'runner_player.dart';
 ///
 /// 玩法：角色自动向右奔跑，点击屏幕跳跃，躲避障碍物，收集金币。
 /// 基于 Flame 引擎，固定分辨率 480x854（竖屏），适配各种手机。
-class RunnerGame extends FlameGame with HasCollisionDetection {
+class RunnerGame extends FlameGame with HasCollisionDetection implements GameController {
   /// 游戏逻辑分辨率（FixedResolutionViewport 自动缩放适配屏幕）
   static const double gameWidth = 480;
   static const double gameHeight = 854;
@@ -30,14 +31,26 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
   late final RunnerPlayer player;
   final Random _random = Random();
 
-  /// 得分（金币）
+  /// 得分（金币×10）
   int score = 0;
 
+  /// 已收集金币数（通用接口）
+  @override
+  int get coins => score ~/ 10;
+
   /// 过关所需金币数 = 8 + 关卡×2（第1关10枚、第5关18枚、第10关28枚）
+  @override
   int get targetCoins => 8 + level * 2;
 
   /// 是否已达成过关条件（收集够金币）
+  @override
   bool hasWon = false;
+
+  /// HUD 右侧副信息（距离）
+  @override
+  String get statLabel => '距离';
+  @override
+  String get statValue => '${distanceMeters}m';
 
   /// 奔跑距离（米，1 单位 = 20px）
   int get distanceMeters => (distance / 20).floor();
@@ -46,6 +59,7 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
   double _speed = 200;
   double distance = 0;
   double _elapsed = 0;
+  @override
   bool isGameOver = false;
 
   /// 难度曲线：起始 200，每秒 +8，上限 600（约 50s 加到满速）
@@ -130,6 +144,7 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
   }
 
   /// 重新开始
+  @override
   void restart() {
     // 清理所有障碍和金币（直接从组件树里清，不必维护冗余列表）
     for (final child in children) {
@@ -154,6 +169,7 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
   }
 
   /// 玩家选择"返回"：上报结果
+  @override
   void quit(bool success) {
     onFinished?.call(success);
   }
