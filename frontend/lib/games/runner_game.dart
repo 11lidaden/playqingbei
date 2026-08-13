@@ -31,6 +31,9 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
   /// 得分（金币）
   int score = 0;
 
+  /// DEBUG: 屏幕点击计数（用于诊断手势是否触发）
+  int tapCount = 0;
+
   /// 奔跑距离（米，1 单位 = 20px）
   int get distanceMeters => (distance / 20).floor();
 

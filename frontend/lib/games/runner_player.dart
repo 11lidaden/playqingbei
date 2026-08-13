@@ -110,28 +110,30 @@ class RunnerPlayer extends SpriteComponent with CollisionCallbacks {
     super.update(dt);
 
     const groundY = RunnerGame.groundY;
-    _isOnGround = position.y >= groundY - 0.5;
 
-    if (_isOnGround) {
-      _coyoteTimer = _coyoteTime;
-    } else {
+    // Coyote time 衰减（不依赖 _isOnGround 重判，信任上一帧状态）
+    if (!_isOnGround) {
       _coyoteTimer = max(0, _coyoteTimer - dt);
+    } else {
+      _coyoteTimer = _coyoteTime;
     }
     _jumpBufferTimer = max(0, _jumpBufferTimer - dt);
 
+    // 先处理 buffer 起跳（jump() 可能设了 buffer）
     if (_isOnGround && _jumpBufferTimer > 0) {
       _doJump();
     }
 
+    // 施加重力（跳起后 _isOnGround=false，不会被清零）
     if (!_isOnGround) {
       final g = velocity.y > 0 ? _gravity * _fallMultiplier : _gravity;
       velocity.y = min(_maxFallSpeed, velocity.y + g * dt);
-    } else {
-      velocity.y = 0;
     }
 
+    // 更新位置
     position.y += velocity.y * dt;
 
+    // 落地判定（位置更新之后才判断，避免覆盖 jump() 设的 _isOnGround=false）
     if (position.y >= groundY) {
       position.y = groundY;
       velocity.y = 0;

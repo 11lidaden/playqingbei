@@ -45,6 +45,8 @@ class _GameScreenState extends State<GameScreen> {
             // gesture recognizer 或 HUD overlay 手势竞争影响。
             behavior: HitTestBehavior.translucent,
             onPointerDown: (_) {
+              game.tapCount++;
+              debugPrint('[DEBUG] onPointerDown fired, tapCount=${game.tapCount}, isGameOver=${game.isGameOver}');
               if (!game.isGameOver) {
                 game.player.jump();
               }
@@ -206,6 +208,22 @@ class _RunnerHudState extends State<_RunnerHud> {
                   color: Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            // DEBUG: 点击计数（诊断手势是否触发）
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'TAP:${game.tapCount}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
