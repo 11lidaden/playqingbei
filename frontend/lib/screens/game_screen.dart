@@ -39,13 +39,24 @@ class _GameScreenState extends State<GameScreen> {
       final game = _runnerGame!;
       return Scaffold(
         body: SizedBox.expand(
-          child: GameWidget<RunnerGame>(
-            game: game,
-            overlayBuilderMap: {
-              'HUD': (_, game) => _RunnerHud(game: game),
-              'gameOver': (_, game) => _GameOverOverlay(game: game),
+          child: GestureDetector(
+            // 用 GestureDetector 接管点击，onTapDown 在手指一接触屏幕就触发，
+            // 不依赖 tap 完整识别（down+up 同位置），不受 HUD overlay 手势竞争干扰。
+            // 这是单指即跳、最可靠的方案。
+            behavior: HitTestBehavior.opaque,
+            onTapDown: (_) {
+              if (!game.isGameOver) {
+                game.player.jump();
+              }
             },
-            initialActiveOverlays: const ['HUD'],
+            child: GameWidget<RunnerGame>(
+              game: game,
+              overlayBuilderMap: {
+                'HUD': (_, game) => _RunnerHud(game: game),
+                'gameOver': (_, game) => _GameOverOverlay(game: game),
+              },
+              initialActiveOverlays: const ['HUD'],
+            ),
           ),
         ),
       );

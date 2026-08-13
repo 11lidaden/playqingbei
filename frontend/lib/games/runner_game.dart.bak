@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flame/camera.dart';
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
+import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 
 import 'runner_coin.dart';
@@ -14,7 +15,7 @@ import 'runner_player.dart';
 ///
 /// 玩法：角色自动向右奔跑，点击屏幕跳跃，躲避障碍物，收集金币。
 /// 基于 Flame 引擎，固定分辨率 480x854（竖屏），适配各种手机。
-class RunnerGame extends FlameGame with HasCollisionDetection {
+class RunnerGame extends FlameGame with HasCollisionDetection, TapCallbacks {
   /// 游戏逻辑分辨率（FixedResolutionViewport 自动缩放适配屏幕）
   static const double gameWidth = 480;
   static const double gameHeight = 854;
@@ -152,6 +153,13 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
     distance += speed * dt;
 
     super.update(dt);
+  }
+
+  @override
+  void onTapDown(TapDownEvent event) {
+    if (!isGameOver) {
+      player.jump();
+    }
   }
 
   @override
