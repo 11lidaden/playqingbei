@@ -39,12 +39,12 @@ class _GameScreenState extends State<GameScreen> {
       final game = _runnerGame!;
       return Scaffold(
         body: SizedBox.expand(
-          child: GestureDetector(
-            // 用 GestureDetector 接管点击，onTapDown 在手指一接触屏幕就触发，
-            // 不依赖 tap 完整识别（down+up 同位置），不受 HUD overlay 手势竞争干扰。
-            // 这是单指即跳、最可靠的方案。
-            behavior: HitTestBehavior.opaque,
-            onTapDown: (_) {
+          child: Listener(
+            // 用 Listener 而非 GestureDetector：Listener 不参与手势 arena，
+            // 直接在指针接触屏幕时回调，100% 触发，不受 GameWidget 内部
+            // gesture recognizer 或 HUD overlay 手势竞争影响。
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) {
               if (!game.isGameOver) {
                 game.player.jump();
               }
