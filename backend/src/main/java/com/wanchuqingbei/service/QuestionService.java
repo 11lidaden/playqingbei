@@ -23,9 +23,20 @@ public class QuestionService {
 
     /**
      * 获取指定关卡的题目（随机抽取，不返回答案）
+     * 题目难度随关卡递增：L1抽难度1、L2抽1-2……L10抽9-10
      */
     public List<QuestionDTO> getQuestions(String grade, String subject, int level) {
-        List<Question> questions = questionRepository.findRandomByGradeAndSubjectAndLevel(grade, subject, level);
+        int[] range = difficultyRange(level);
+        List<Question> questions = questionRepository
+            .findRandomByGradeAndSubjectAndDifficultyRange(grade, subject, range[0], range[1]);
+        // 该难度范围题不足时，退回该关卡专属题
+        if (questions.isEmpty()) {
+            questions = questionRepository.findRandomByGradeAndSubjectAndLevel(grade, subject, level);
+        }
+        // 每关固定 5 题（防止难度范围扩大后题量翻倍）
+        if (questions.size() > 5) {
+            questions = questions.subList(0, 5);
+        }
         return questions.stream().map(q -> {
             try {
                 List<String> options = objectMapper.readValue(q.getOptions(), new TypeReference<>() {});
@@ -34,6 +45,16 @@ public class QuestionService {
                 return new QuestionDTO(q.getId(), q.getContent(), List.of());
             }
         }).toList();
+    }
+
+    /**
+     * 关卡 → 难度范围映射（一关比一关难，支持 1-10 关）
+     * L1抽难度1、L2抽1-2、L3抽2-3……L10抽9-10
+     */
+    private int[] difficultyRange(int level) {
+        int min = Math.max(1, level - 1);
+        int max = Math.min(10, level);
+        return new int[]{min, max};
     }
 
     /**
