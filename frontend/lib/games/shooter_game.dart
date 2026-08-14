@@ -40,6 +40,13 @@ class ShooterGame extends FlameGame with HasCollisionDetection implements GameCo
   /// 已漏掉的气球数
   int _missed = 0;
 
+  /// 调试信息（点击坐标 / viewport 尺寸 / 命中距离）
+  String _debugInfo = '';
+
+  /// HUD 调试文本
+  @override
+  String get debugText => _debugInfo;
+
   double _elapsed = 0;
   double _spawnAccumulator = 0;
   bool isGameOver = false;
@@ -138,6 +145,7 @@ class ShooterGame extends FlameGame with HasCollisionDetection implements GameCo
     b.pop();
     _balloons.remove(b);
     coins += 1;
+    _debugInfo = 'POP! coins=' + coins.toString() + '/' + targetCoins.toString();
     _onCoinCollected();
   }
 
@@ -146,20 +154,37 @@ class ShooterGame extends FlameGame with HasCollisionDetection implements GameCo
     if (isGameOver) return;
     // 正向映射：气球的 world 位置 → 屏幕坐标，直接与点击坐标比较
     final vpSize = camera.viewport.size;
-    if (vpSize.x <= 0 || vpSize.y <= 0) return;
+    if (vpSize.x <= 0 || vpSize.y <= 0) {
+      _debugInfo = 'tap=(' + screenPoint.x.toStringAsFixed(0) + ',' + screenPoint.y.toStringAsFixed(0) +
+          ') vp=(0,0) vp未初始化';
+      return;
+    }
     final scale = min(vpSize.x / gameWidth, vpSize.y / gameHeight);
     final offsetX = (vpSize.x - gameWidth * scale) / 2;
     final offsetY = (vpSize.y - gameHeight * scale) / 2;
 
+    // 找最近气球并记录距离（调试）
+    double bestDist = double.infinity;
+    _Balloon? nearest;
     for (final b in _balloons.reversed) {
       if (!b.isMounted) continue;
       final sx = offsetX + b.position.x * scale;
       final sy = offsetY + b.position.y * scale;
       final dist = (screenPoint - Vector2(sx, sy)).length;
-      if (dist <= b.size.x * 0.7 * scale) {
-        _onBalloonPopped(b);
-        return;
+      if (dist < bestDist) {
+        bestDist = dist;
+        nearest = b;
       }
+    }
+    final hitRadius = nearest == null ? 0.0 : nearest.size.x * 0.85 * scale;
+    _debugInfo = 'tap=(' + screenPoint.x.toStringAsFixed(0) + ',' + screenPoint.y.toStringAsFixed(0) +
+        ') vp=(' + vpSize.x.toStringAsFixed(0) + ',' + vpSize.y.toStringAsFixed(0) +
+        ') scale=' + scale.toStringAsFixed(2) +
+        ' near=' + (nearest == null ? '-' : bestDist.toStringAsFixed(0)) +
+        ' hit<=' + hitRadius.toStringAsFixed(0);
+
+    if (nearest != null && bestDist <= hitRadius) {
+      _onBalloonPopped(nearest);
     }
   }
 

@@ -170,6 +170,10 @@ class RunnerGame extends FlameGame with HasCollisionDetection implements GameCon
 
   /// 玩家选择"返回"：上报结果
   @override
+  /// 调试信息（跑酷无）
+  @override
+  String get debugText => '';
+
   void quit(bool success) {
     onFinished?.call(success);
   }

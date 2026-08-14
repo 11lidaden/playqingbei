@@ -199,11 +199,14 @@ class _RunnerHudState extends State<_RunnerHud> {
   Widget build(BuildContext context) {
     final game = widget.game;
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
             // 金币进度
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -243,7 +246,26 @@ class _RunnerHudState extends State<_RunnerHud> {
               ),
             ),
           ],
-        ),
+          ),
+          ),
+          // 调试信息（诊断用，正常不显示）
+          if (game.debugText.isNotEmpty)
+            Positioned(
+              left: 8,
+              bottom: 4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  game.debugText,
+                  style: const TextStyle(color: Colors.yellow, fontSize: 10, fontFamily: 'monospace'),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

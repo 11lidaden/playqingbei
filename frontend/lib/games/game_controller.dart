@@ -21,4 +21,7 @@ abstract class GameController {
 
   /// 返回上一页（success=true 过关，false 失败）
   void quit(bool success);
+
+  /// 调试信息（HUD 左下角小字显示，空串则不显示）
+  String get debugText => '';
 }
