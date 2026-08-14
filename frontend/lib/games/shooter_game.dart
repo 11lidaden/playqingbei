@@ -3,7 +3,9 @@ import 'dart:math';
 import 'package:flame/camera.dart';
 import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
+import 'package:flame/events.dart';
 import 'package:flame/game.dart';
+import 'package:flutter/foundation.dart' show VoidCallback;
 import 'package:flutter/material.dart';
 
 import 'game_controller.dart';
@@ -12,10 +14,10 @@ import 'game_controller.dart';
 ///
 /// 玩法：彩色气球从屏幕顶部飘落，点击击破收集金币。
 /// 漏掉 3 个气球失败；收集够目标金币过关（目标随关卡递增）。
-/// 与跑酷一致：金币单局计数，重跑清零。
 ///
-/// 实现要点：气球用 MoveEffect 自动下落，不依赖 game.update 改 position，
-/// 避免 transform/子组件 update 链异常导致位置不更新。
+/// 点击命中双通道：
+/// 1. 主通道：气球组件自带 TapCallbacks（Flame 内部命中，绕开坐标换算）
+/// 2. 备通道：GameScreen 的 Listener 调 handleTap（屏幕坐标正向映射比较）
 class ShooterGame extends FlameGame with HasCollisionDetection implements GameController {
   static const double gameWidth = 480;
   static const double gameHeight = 854;
@@ -93,7 +95,6 @@ class ShooterGame extends FlameGame with HasCollisionDetection implements GameCo
     }
 
     // 检查漏掉（气球位置由各自 MoveEffect 驱动）
-    // 用副本迭代，因为 _onBalloonMissed 会修改 _balloons
     for (final b in _balloons.toList()) {
       if (b.isMounted && b.position.y > _outY) {
         _onBalloonMissed(b);
@@ -107,10 +108,13 @@ class ShooterGame extends FlameGame with HasCollisionDetection implements GameCo
   void _spawnBalloon() {
     final colors = _BalloonColor.values;
     final color = colors[_random.nextInt(colors.length)];
-    // 初始 y 错开（40~220 随机），避免所有气球堆在同一点
+    // 初始 y 错开（40~220 随机），避免堆叠
     final startY = 40 + _random.nextDouble() * 180;
-    final balloon = _Balloon(
+
+    late final _Balloon balloon;
+    balloon = _Balloon(
       color: color,
+      onPopped: () => _onBalloonPopped(balloon),
       position: Vector2(
         40 + _random.nextDouble() * (gameWidth - 80),
         startY,
@@ -119,8 +123,7 @@ class ShooterGame extends FlameGame with HasCollisionDetection implements GameCo
     _balloons.add(balloon);
     add(balloon);
 
-    // 用 MoveEffect 让气球自动下落（独立于 game.update 的位置修改）
-    // 走过的距离 = 从当前位置到屏幕外的距离，保证气球一定飘出屏幕触发漏掉判定
+    // MoveEffect 驱动下落（独立于 game.update 的位置修改）
     final distance = _outY + 100 - startY;
     balloon.add(MoveEffect.by(
       Vector2(0, distance),
@@ -128,46 +131,35 @@ class ShooterGame extends FlameGame with HasCollisionDetection implements GameCo
     ));
   }
 
-  /// 外部（Listener）调用：屏幕坐标点击
+  /// 气球被击破（TapCallbacks 主通道 / Listener 备通道都会走到这里）
+  void _onBalloonPopped(_Balloon b) {
+    if (isGameOver) return;
+    if (!b.isMounted || !_balloons.contains(b)) return;
+    b.pop();
+    _balloons.remove(b);
+    coins += 1;
+    _onCoinCollected();
+  }
+
+  /// 外部（Listener）调用：屏幕坐标点击（备用通道）
   void handleTap(Vector2 screenPoint) {
     if (isGameOver) return;
-    final world = _screenToWorld(screenPoint);
-    _tryPop(world);
-  }
-
-  /// 屏幕坐标 → 游戏世界坐标。
-  /// 用 FixedResolutionViewport 的逆变换（等比缩放居中）手动算，
-  /// 不依赖 viewport.globalToLocal（之前的实现命中不到气球，说明坐标系对不上）。
-  Vector2 _screenToWorld(Vector2 screenPoint) {
+    // 正向映射：气球的 world 位置 → 屏幕坐标，直接与点击坐标比较
     final vpSize = camera.viewport.size;
+    if (vpSize.x <= 0 || vpSize.y <= 0) return;
     final scale = min(vpSize.x / gameWidth, vpSize.y / gameHeight);
-    final gameWPx = gameWidth * scale;
-    final gameHPx = gameHeight * scale;
-    final offsetX = (vpSize.x - gameWPx) / 2;
-    final offsetY = (vpSize.y - gameHPx) / 2;
-    return Vector2(
-      (screenPoint.x - offsetX) / scale,
-      (screenPoint.y - offsetY) / scale,
-    );
-  }
+    final offsetX = (vpSize.x - gameWidth * scale) / 2;
+    final offsetY = (vpSize.y - gameHeight * scale) / 2;
 
-  void _tryPop(Vector2 world) {
-    // 找距离最近的气球
-    _Balloon? nearest;
-    var bestDist = double.infinity;
-    for (final b in _balloons) {
+    for (final b in _balloons.reversed) {
       if (!b.isMounted) continue;
-      final dist = (world - b.position).length;
-      if (dist < bestDist) {
-        bestDist = dist;
-        nearest = b;
+      final sx = offsetX + b.position.x * scale;
+      final sy = offsetY + b.position.y * scale;
+      final dist = (screenPoint - Vector2(sx, sy)).length;
+      if (dist <= b.size.x * 0.7 * scale) {
+        _onBalloonPopped(b);
+        return;
       }
-    }
-    if (nearest != null && bestDist <= nearest.size.x * 0.7) {
-      nearest.pop();
-      _balloons.remove(nearest);
-      coins += 1;
-      _onCoinCollected();
     }
   }
 
@@ -232,12 +224,14 @@ class ShooterGame extends FlameGame with HasCollisionDetection implements GameCo
 /// 气球颜色
 enum _BalloonColor { red, blue, green, yellow }
 
-/// 气球组件：位置由 MoveEffect 自动驱动
-class _Balloon extends SpriteComponent {
+/// 气球组件：位置由 MoveEffect 驱动，点击由 TapCallbacks 内部命中
+class _Balloon extends SpriteComponent with TapCallbacks {
   final _BalloonColor color;
+  final VoidCallback onPopped;
 
   _Balloon({
     required this.color,
+    required this.onPopped,
     required super.position,
   }) : super(size: Vector2(72, 96), anchor: Anchor.center);
 
@@ -254,6 +248,11 @@ class _Balloon extends SpriteComponent {
     } catch (_) {
       sprite = null;
     }
+  }
+
+  @override
+  void onTapDown(TapDownEvent event) {
+    onPopped();
   }
 
   /// 击破：播放缩小消失动画后移除
