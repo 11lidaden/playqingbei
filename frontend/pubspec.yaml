@@ -1,7 +1,7 @@
 name: wanchuqingbei
 description: 玩出清北 - 边玩边学，通关上清北
 publish_to: 'none'
-version: 2.0.0+200
+version: 2.0.1+201
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
