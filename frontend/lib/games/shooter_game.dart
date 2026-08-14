@@ -135,22 +135,16 @@ class ShooterGame extends FlameGame with HasCollisionDetection implements GameCo
     _tryPop(world);
   }
 
-  /// 屏幕坐标 → 游戏世界坐标
+  /// 屏幕坐标 → 游戏世界坐标。
+  /// 用 FixedResolutionViewport 的逆变换（等比缩放居中）手动算，
+  /// 不依赖 viewport.globalToLocal（之前的实现命中不到气球，说明坐标系对不上）。
   Vector2 _screenToWorld(Vector2 screenPoint) {
-    try {
-      final world = camera.viewport.globalToLocal(screenPoint);
-      final valid = world.x.isFinite && world.y.isFinite &&
-          world.x >= -50 && world.x <= gameWidth + 50 &&
-          world.y >= -50 && world.y <= gameHeight + 50;
-      if (valid) return world;
-    } catch (_) {}
-    // 兜底：等比缩放居中
     final vpSize = camera.viewport.size;
     final scale = min(vpSize.x / gameWidth, vpSize.y / gameHeight);
-    final gameW = gameWidth * scale;
-    final gameH = gameHeight * scale;
-    final offsetX = (vpSize.x - gameW) / 2;
-    final offsetY = (vpSize.y - gameH) / 2;
+    final gameWPx = gameWidth * scale;
+    final gameHPx = gameHeight * scale;
+    final offsetX = (vpSize.x - gameWPx) / 2;
+    final offsetY = (vpSize.y - gameHPx) / 2;
     return Vector2(
       (screenPoint.x - offsetX) / scale,
       (screenPoint.y - offsetY) / scale,
@@ -169,7 +163,7 @@ class ShooterGame extends FlameGame with HasCollisionDetection implements GameCo
         nearest = b;
       }
     }
-    if (nearest != null && bestDist <= nearest.size.x * 0.62) {
+    if (nearest != null && bestDist <= nearest.size.x * 0.7) {
       nearest.pop();
       _balloons.remove(nearest);
       coins += 1;
