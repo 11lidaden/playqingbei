@@ -52,12 +52,14 @@ class ShooterGame extends FlameGame with HasCollisionDetection implements GameCo
   @override
   String get statValue => '${_maxMiss - _missed}';
 
-  /// 气球生成间隔（秒），随关卡和时间缩短
+  /// 气球生成间隔（秒），随关卡和时间缩短。
+  /// 起步 0.8s（比旧版 1.6s 快一倍），开局立即有气球可点。
   double get _spawnInterval =>
-      max(0.7, 1.6 - (level - 1) * 0.06 - _elapsed * 0.004);
+      max(0.5, 0.8 - (level - 1) * 0.04 - _elapsed * 0.002);
 
-  /// 气球下落速度（px/s），随关卡和时间加快
-  double get _fallSpeed => 70 + (level - 1) * 6 + _elapsed * 2.2;
+  /// 气球下落速度（px/s），随关卡和时间加快。
+  /// 起步 100px/s（旧版 70 太慢，看起来像没动静）。
+  double get _fallSpeed => 100 + (level - 1) * 8 + _elapsed * 2.5;
 
   ShooterGame({this.onFinished, this.level = 1});
 
@@ -69,6 +71,10 @@ class ShooterGame extends FlameGame with HasCollisionDetection implements GameCo
     camera.viewfinder.anchor = Anchor.topLeft;
 
     await add(_SkyBackground());
+
+    // 开局预生成 2 个气球：一进游戏就有东西可点
+    _spawnBalloon();
+    _spawnBalloon();
   }
 
   @override
@@ -102,9 +108,10 @@ class ShooterGame extends FlameGame with HasCollisionDetection implements GameCo
     final color = colors[_random.nextInt(colors.length)];
     final balloon = _Balloon(
       color: color,
+      // 初始 y=40：屏幕顶部可见范围（旧版 -60 在屏幕外，开局看不到）
       position: Vector2(
         40 + _random.nextDouble() * (gameWidth - 80),
-        -60,
+        40,
       ),
     );
     _balloons.add(balloon);
@@ -114,22 +121,52 @@ class ShooterGame extends FlameGame with HasCollisionDetection implements GameCo
   /// 外部（Listener）调用：屏幕坐标点击
   void handleTap(Vector2 screenPoint) {
     if (isGameOver) return;
-    // 屏幕坐标 → 游戏世界坐标（FixedResolutionViewport.globalToLocal）
-    final world = camera.viewport.globalToLocal(screenPoint);
+    final world = _screenToWorld(screenPoint);
     _tryPop(world);
   }
 
+  /// 屏幕坐标 → 游戏世界坐标。
+  /// 优先用 viewport.globalToLocal；若结果异常（NaN/越界）则用
+  /// FixedResolutionViewport 的等比缩放居中算法手动兜底。
+  Vector2 _screenToWorld(Vector2 screenPoint) {
+    try {
+      final world = camera.viewport.globalToLocal(screenPoint);
+      final valid = world.x.isFinite && world.y.isFinite &&
+          world.x >= -50 && world.x <= gameWidth + 50 &&
+          world.y >= -50 && world.y <= gameHeight + 50;
+      if (valid) return world;
+    } catch (_) {
+      // 忽略，走兜底
+    }
+    // 兜底：等比缩放居中（FixedResolutionViewport 的算法）
+    final vpSize = camera.viewport.size;
+    final scale = min(vpSize.x / gameWidth, vpSize.y / gameHeight);
+    final gameW = gameWidth * scale;
+    final gameH = gameHeight * scale;
+    final offsetX = (vpSize.x - gameW) / 2;
+    final offsetY = (vpSize.y - gameH) / 2;
+    return Vector2(
+      (screenPoint.x - offsetX) / scale,
+      (screenPoint.y - offsetY) / scale,
+    );
+  }
+
   void _tryPop(Vector2 world) {
-    // 从最靠近的（最后生成/最上层）开始找
-    for (final b in _balloons.reversed) {
-      final c = b.position;
-      if ((world - c).length <= b.size.x * 0.55) {
-        b.pop();
-        _balloons.remove(b);
-        coins += 1;
-        _onCoinCollected();
-        return;
+    // 找距离最近的气球（重叠时破最贴近点击位置的）
+    _Balloon? nearest;
+    var bestDist = double.infinity;
+    for (final b in _balloons) {
+      final dist = (world - b.position).length;
+      if (dist < bestDist) {
+        bestDist = dist;
+        nearest = b;
       }
+    }
+    if (nearest != null && bestDist <= nearest.size.x * 0.62) {
+      nearest.pop();
+      _balloons.remove(nearest);
+      coins += 1;
+      _onCoinCollected();
     }
   }
 
@@ -171,6 +208,10 @@ class ShooterGame extends FlameGame with HasCollisionDetection implements GameCo
     isGameOver = false;
     hasWon = false;
 
+    // 重开也预生成 2 个，避免开局空窗
+    _spawnBalloon();
+    _spawnBalloon();
+
     overlays.remove('gameOver');
     overlays.remove('gameWin');
     resumeEngine();
@@ -198,7 +239,7 @@ class _Balloon extends SpriteComponent {
   _Balloon({
     required this.color,
     required super.position,
-  }) : super(size: Vector2(60, 80), anchor: Anchor.center);
+  }) : super(size: Vector2(72, 96), anchor: Anchor.center);
 
   @override
   Future<void> onLoad() async {
